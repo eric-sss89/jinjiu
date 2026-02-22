@@ -11,6 +11,8 @@ internal sealed class RuleOptions
     public double HpLowThreshold { get; set; } = 0.25;
     public double TargetAliveThreshold { get; set; } = 0.05;
     public int ActionCooldownMs { get; set; } = 1200;
+    public int StateConfirmFrames { get; set; } = 3;
+    public int MinStateDwellMs { get; set; } = 800;
 }
 internal sealed class RoiRect { public double X { get; set; } public double Y { get; set; } public double W { get; set; } public double H { get; set; } }
 internal sealed class RoiOptions { public RoiRect PlayerHp { get; set; } = new(); public RoiRect TargetHp { get; set; } = new(); }
@@ -23,12 +25,20 @@ internal static class Program
     private static DateTimeOffset? _stalledSince;
     private static DateTimeOffset _lastActionAt = DateTimeOffset.MinValue;
 
+    private static string _stableMode = "IDLE";
+    private static DateTimeOffset _stableModeSince = DateTimeOffset.MinValue;
+    private static string _candidateMode = "IDLE";
+    private static int _candidateCount = 0;
+
     private static async Task Main()
     {
         var opt = LoadOptions();
         Directory.CreateDirectory(opt.Output.OutboxDir);
         var statePath = Path.Combine(opt.Output.OutboxDir, opt.Output.StateFile);
         var actionPath = Path.Combine(opt.Output.OutboxDir, opt.Output.ActionQueueFile);
+
+        _stableModeSince = DateTimeOffset.Now;
+        _candidateMode = _stableMode;
 
         Console.WriteLine("[Jinjiu.Orchestrator] MVP started");
 
@@ -54,22 +64,19 @@ internal static class Program
                     diff = ComputeDiffRatio(prev, cur, 10);
                 }
 
-                var isSceneChanged = diff > opt.Rules.SceneChangeThreshold;
                 var isStalledNow = diff < opt.Rules.StalledDiffThreshold;
-                if (isStalledNow)
-                {
-                    _stalledSince ??= DateTimeOffset.Now;
-                }
-                else
-                {
-                    _stalledSince = null;
-                }
+                if (isStalledNow) _stalledSince ??= DateTimeOffset.Now;
+                else _stalledSince = null;
 
                 var stalledSeconds = _stalledSince is null ? 0 : (DateTimeOffset.Now - _stalledSince.Value).TotalSeconds;
-                var state = BuildState(hpPct, targetHpPct, diff, stalledSeconds, opt);
+
+                var rawMode = InferRawMode(hpPct, targetHpPct, diff, stalledSeconds, opt);
+                var modeChanged = UpdateStableMode(rawMode, opt);
+
+                var state = BuildState(hpPct, targetHpPct, diff, stalledSeconds, rawMode, _stableMode, modeChanged);
                 File.WriteAllText(statePath, state.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 
-                var action = DecideAction(state, opt);
+                var action = DecideAction(_stableMode);
                 if (action is not null && (DateTimeOffset.Now - _lastActionAt).TotalMilliseconds >= opt.Rules.ActionCooldownMs)
                 {
                     AppendJsonLine(actionPath, action);
@@ -88,18 +95,58 @@ internal static class Program
         }
     }
 
-    private static JsonObject BuildState(double hpPct, double targetHpPct, double diff, double stalledSeconds, AppOptions opt)
+    private static string InferRawMode(double hpPct, double targetHpPct, double diff, double stalledSeconds, AppOptions opt)
     {
         var mode = "IDLE";
         if (hpPct < opt.Rules.HpLowThreshold) mode = "RECOVER";
         else if (targetHpPct > opt.Rules.TargetAliveThreshold) mode = "COMBAT";
         else if (diff > opt.Rules.SceneChangeThreshold) mode = "SEARCH";
         if (stalledSeconds >= opt.Rules.StalledSeconds) mode = "ERROR";
+        return mode;
+    }
 
+    private static bool UpdateStableMode(string rawMode, AppOptions opt)
+    {
+        if (rawMode == _stableMode)
+        {
+            _candidateMode = rawMode;
+            _candidateCount = 0;
+            return false;
+        }
+
+        if (_candidateMode != rawMode)
+        {
+            _candidateMode = rawMode;
+            _candidateCount = 1;
+            return false;
+        }
+
+        _candidateCount++;
+
+        var dwellOk = (DateTimeOffset.Now - _stableModeSince).TotalMilliseconds >= opt.Rules.MinStateDwellMs;
+        var confirmOk = _candidateCount >= opt.Rules.StateConfirmFrames;
+
+        if (dwellOk && confirmOk)
+        {
+            var from = _stableMode;
+            _stableMode = _candidateMode;
+            _stableModeSince = DateTimeOffset.Now;
+            _candidateCount = 0;
+            Console.WriteLine($"[state] {from} -> {_stableMode}");
+            return true;
+        }
+
+        return false;
+    }
+
+    private static JsonObject BuildState(double hpPct, double targetHpPct, double diff, double stalledSeconds, string rawMode, string stableMode, bool modeChanged)
+    {
         return new JsonObject
         {
             ["time"] = DateTimeOffset.Now.ToString("O"),
-            ["mode"] = mode,
+            ["rawMode"] = rawMode,
+            ["mode"] = stableMode,
+            ["modeChanged"] = modeChanged,
             ["hpPct"] = Math.Round(hpPct, 3),
             ["targetHpPct"] = Math.Round(targetHpPct, 3),
             ["frameDiff"] = Math.Round(diff, 4),
@@ -107,9 +154,8 @@ internal static class Program
         };
     }
 
-    private static JsonObject? DecideAction(JsonObject state, AppOptions opt)
+    private static JsonObject? DecideAction(string mode)
     {
-        var mode = state["mode"]?.GetValue<string>() ?? "IDLE";
         return mode switch
         {
             "RECOVER" => Action("use_potion", "hp_low"),
@@ -200,6 +246,8 @@ internal static class Program
             opt.Rules.HpLowThreshold = rules["HpLowThreshold"]?.GetValue<double>() ?? opt.Rules.HpLowThreshold;
             opt.Rules.TargetAliveThreshold = rules["TargetAliveThreshold"]?.GetValue<double>() ?? opt.Rules.TargetAliveThreshold;
             opt.Rules.ActionCooldownMs = rules["ActionCooldownMs"]?.GetValue<int>() ?? opt.Rules.ActionCooldownMs;
+            opt.Rules.StateConfirmFrames = rules["StateConfirmFrames"]?.GetValue<int>() ?? opt.Rules.StateConfirmFrames;
+            opt.Rules.MinStateDwellMs = rules["MinStateDwellMs"]?.GetValue<int>() ?? opt.Rules.MinStateDwellMs;
         }
         if (roi is not null)
         {

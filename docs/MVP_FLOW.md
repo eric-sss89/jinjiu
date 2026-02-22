@@ -15,6 +15,10 @@
   - 目标血条填充比 `targetHpPct`
 - 帧差：判断画面是否有明显变化
 
+## MVP 状态稳定策略
+- 使用 `rawMode` 与 `mode` 双层状态
+- 仅当候选状态连续满足 `StateConfirmFrames` 且超过 `MinStateDwellMs` 才切换 `mode`
+
 ## MVP 策略
 - `hpPct < 25%`：下发 `use_potion`
 - `targetHpPct > 5%`：下发 `cast_skill_1`
