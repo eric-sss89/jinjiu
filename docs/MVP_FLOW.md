@@ -5,7 +5,7 @@
 ## 流程
 1. `Jinjiu.Capture` 持续截图
 2. `Jinjiu.Orchestrator` 读取最新截图，做最小识别并输出：
-   - `outbox/game_state.json`（当前状态）
+   - `outbox/game_state.json`（当前状态，含 `stateVersion/seq/lastAction`）
    - `outbox/action_queue.jsonl`（待执行动作）
 3. `Jinjiu.InputDriver` 消费动作队列并执行（当前为模拟执行 + 日志，含去重与限频）
 

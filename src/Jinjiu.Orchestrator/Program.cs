@@ -31,6 +31,8 @@ internal static class Program
     private static DateTimeOffset _stableModeSince = DateTimeOffset.MinValue;
     private static string _candidateMode = "IDLE";
     private static int _candidateCount = 0;
+    private static long _stateSeq = 0;
+    private static JsonObject? _lastAction;
 
     private static async Task Main()
     {
@@ -75,9 +77,6 @@ internal static class Program
                 var rawMode = InferRawMode(hpPct, targetHpPct, diff, stalledSeconds, opt);
                 var modeChanged = UpdateStableMode(rawMode, opt);
 
-                var state = BuildState(hpPct, targetHpPct, diff, stalledSeconds, rawMode, _stableMode, modeChanged);
-                File.WriteAllText(statePath, state.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
-
                 var action = DecideAction(_stableMode);
                 if (action is not null
                     && (DateTimeOffset.Now - _lastActionAt).TotalMilliseconds >= opt.Rules.ActionCooldownMs
@@ -86,10 +85,14 @@ internal static class Program
                     AppendJsonLine(actionPath, action);
                     _lastActionAt = DateTimeOffset.Now;
                     RememberIntent(action);
+                    _lastAction = action;
                     Console.WriteLine($"[action] {action.ToJsonString()}");
                 }
 
                 CleanupIntentCache(opt.Rules.ActionDedupWindowSec);
+
+                var state = BuildState(hpPct, targetHpPct, diff, stalledSeconds, rawMode, _stableMode, modeChanged, _lastAction);
+                File.WriteAllText(statePath, state.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 
                 _lastFramePath = latest;
             }
@@ -146,18 +149,23 @@ internal static class Program
         return false;
     }
 
-    private static JsonObject BuildState(double hpPct, double targetHpPct, double diff, double stalledSeconds, string rawMode, string stableMode, bool modeChanged)
+    private static JsonObject BuildState(double hpPct, double targetHpPct, double diff, double stalledSeconds, string rawMode, string stableMode, bool modeChanged, JsonObject? lastAction)
     {
+        _stateSeq++;
         return new JsonObject
         {
+            ["stateVersion"] = "mvp-v1",
+            ["seq"] = _stateSeq,
             ["time"] = DateTimeOffset.Now.ToString("O"),
             ["rawMode"] = rawMode,
             ["mode"] = stableMode,
             ["modeChanged"] = modeChanged,
+            ["modeSince"] = _stableModeSince.ToString("O"),
             ["hpPct"] = Math.Round(hpPct, 3),
             ["targetHpPct"] = Math.Round(targetHpPct, 3),
             ["frameDiff"] = Math.Round(diff, 4),
-            ["stalledSeconds"] = Math.Round(stalledSeconds, 1)
+            ["stalledSeconds"] = Math.Round(stalledSeconds, 1),
+            ["lastAction"] = lastAction?.DeepClone()
         };
     }
 
