@@ -23,6 +23,8 @@ MVP 目标：先跑通 **屏幕采集 -> 状态估计 -> 动作队列 -> 执行�
 - `docs/DEMO_RUNBOOK_5MIN.md`
 - `docs/STATE_SCHEMA.md`
 - `docs/AI_DECISION_INTERFACE_V1.md`
+- `docs/RELEASE_v0.1.0.md`
+- `CHANGELOG.md`
 
 ## 运行要求
 - Windows 10/11
@@ -67,6 +69,21 @@ dotnet run
 ## 一键启动（Windows）
 ```powershell
 ./scripts/start-mvp.ps1
+```
+
+启用 Agent 决策链路：
+```powershell
+./scripts/start-mvp-agent.ps1
+```
+
+停止运行：
+```powershell
+./scripts/stop-mvp.ps1
+```
+
+清理运行产物：
+```powershell
+./scripts/clean-outbox.ps1
 ```
 
 ## 当前 MVP 规则（可跑通）
