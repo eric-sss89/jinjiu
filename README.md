@@ -17,6 +17,7 @@ MVP 目标：先跑通 **屏幕采集 -> 状态估计 -> 动作队列 -> 执行�
 - `docs/PHASE_2_RULE_ENGINE.md`
 - `docs/COMMAND_PROTOCOL.md`
 - `docs/ROI_TUNING.md`
+- `docs/MVP_ACCEPTANCE.md`
 
 ## 运行要求
 - Windows 10/11
@@ -47,6 +48,11 @@ dotnet run
 ```
 
 会持续读取 `action_queue.jsonl` 并打印执行日志。
+
+## 一键启动（Windows）
+```powershell
+./scripts/start-mvp.ps1
+```
 
 ## 当前 MVP 规则（可跑通）
 - 玩家血条低于阈值 -> `use_potion`
