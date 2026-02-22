@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.Json.Nodes;
 
 internal sealed class InputOptions { public string ActionQueueFile { get; set; } = "../Jinjiu.Orchestrator/outbox/action_queue.jsonl"; public int PollMs { get; set; } = 300; }
@@ -10,6 +12,7 @@ internal sealed class DriverOptions
     public string StopFlagFile { get; set; } = "../Jinjiu.Orchestrator/outbox/driver.stop";
     public List<string> AllowedActions { get; set; } = new();
     public bool FocusGuardEnabled { get; set; } = false;
+    public bool UseSystemForegroundTitle { get; set; } = true;
     public string FocusHintFile { get; set; } = "../Jinjiu.Orchestrator/outbox/focus_window.txt";
     public List<string> AllowedWindowKeywords { get; set; } = new();
 }
@@ -117,11 +120,23 @@ internal static class Program
 
     private static bool IsFocusAllowed(DriverOptions opt)
     {
-        if (!File.Exists(opt.FocusHintFile)) return false;
-        var title = File.ReadAllText(opt.FocusHintFile).Trim();
+        var title = opt.UseSystemForegroundTitle ? GetForegroundWindowTitle() : ReadHintTitle(opt.FocusHintFile);
         if (string.IsNullOrWhiteSpace(title)) return false;
         if (opt.AllowedWindowKeywords.Count == 0) return true;
         return opt.AllowedWindowKeywords.Any(k => title.Contains(k, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static string ReadHintTitle(string path)
+        => File.Exists(path) ? File.ReadAllText(path).Trim() : string.Empty;
+
+    private static string GetForegroundWindowTitle()
+    {
+        var hWnd = GetForegroundWindow();
+        if (hWnd == IntPtr.Zero) return string.Empty;
+
+        var sb = new StringBuilder(512);
+        _ = GetWindowText(hWnd, sb, sb.Capacity);
+        return sb.ToString();
     }
 
     private static void CleanupDedup(int dedupWindowSec)
@@ -130,6 +145,12 @@ internal static class Program
         var toRemove = RecentActions.Where(kv => (now - kv.Value).TotalSeconds > dedupWindowSec * 2).Select(kv => kv.Key).ToList();
         foreach (var k in toRemove) RecentActions.Remove(k);
     }
+
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    private static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
 
     private static AppOptions Load()
     {
@@ -147,6 +168,7 @@ internal static class Program
         o.Driver.EnabledFlagFile = n?["Driver"]?["EnabledFlagFile"]?.GetValue<string>() ?? o.Driver.EnabledFlagFile;
         o.Driver.StopFlagFile = n?["Driver"]?["StopFlagFile"]?.GetValue<string>() ?? o.Driver.StopFlagFile;
         o.Driver.FocusGuardEnabled = n?["Driver"]?["FocusGuardEnabled"]?.GetValue<bool>() ?? o.Driver.FocusGuardEnabled;
+        o.Driver.UseSystemForegroundTitle = n?["Driver"]?["UseSystemForegroundTitle"]?.GetValue<bool>() ?? o.Driver.UseSystemForegroundTitle;
         o.Driver.FocusHintFile = n?["Driver"]?["FocusHintFile"]?.GetValue<string>() ?? o.Driver.FocusHintFile;
 
         o.Driver.AllowedActions = n?["Driver"]?["AllowedActions"]?.AsArray().Select(x => x?.GetValue<string>() ?? "").Where(x => !string.IsNullOrWhiteSpace(x)).ToList() ?? o.Driver.AllowedActions;

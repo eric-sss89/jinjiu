@@ -14,8 +14,8 @@
 - 仅允许 `AllowedActions` 列表内动作
 - 未登记动作一律跳过
 
-## 4) 焦点防护（占位）
-- `FocusGuardEnabled=true` 时，读取 `focus_window.txt`
-- 仅当标题包含 `AllowedWindowKeywords` 才执行
-
-> 当前焦点防护是 MVP 占位机制，后续会接系统 API 获取真实前台窗口标题。
+## 4) 焦点防护
+- `FocusGuardEnabled=true` 时启用焦点校验
+- 默认 `UseSystemForegroundTitle=true`：通过 Windows API 获取真实前台窗口标题
+- 仅当标题包含 `AllowedWindowKeywords` 执行动作
+- 兼容回退：`UseSystemForegroundTitle=false` 时读取 `focus_window.txt`
