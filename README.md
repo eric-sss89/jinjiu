@@ -19,6 +19,7 @@ MVP 目标：先跑通 **屏幕采集 -> 状态估计 -> 动作队列 -> 执行�
 - `docs/ROI_TUNING.md`
 - `docs/MVP_ACCEPTANCE.md`
 - `docs/SAFETY_GUARDS.md`
+- `docs/DEMO_RUNBOOK_5MIN.md`
 
 ## 运行要求
 - Windows 10/11

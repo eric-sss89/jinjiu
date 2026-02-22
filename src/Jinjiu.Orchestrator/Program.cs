@@ -13,6 +13,7 @@ internal sealed class RuleOptions
     public int ActionCooldownMs { get; set; } = 1200;
     public int StateConfirmFrames { get; set; } = 3;
     public int MinStateDwellMs { get; set; } = 800;
+    public int ActionDedupWindowSec { get; set; } = 4;
 }
 internal sealed class RoiRect { public double X { get; set; } public double Y { get; set; } public double W { get; set; } public double H { get; set; } }
 internal sealed class RoiOptions { public RoiRect PlayerHp { get; set; } = new(); public RoiRect TargetHp { get; set; } = new(); }
@@ -24,6 +25,7 @@ internal static class Program
     private static string? _lastFramePath;
     private static DateTimeOffset? _stalledSince;
     private static DateTimeOffset _lastActionAt = DateTimeOffset.MinValue;
+    private static readonly Dictionary<string, DateTimeOffset> RecentIntents = new();
 
     private static string _stableMode = "IDLE";
     private static DateTimeOffset _stableModeSince = DateTimeOffset.MinValue;
@@ -77,12 +79,17 @@ internal static class Program
                 File.WriteAllText(statePath, state.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 
                 var action = DecideAction(_stableMode);
-                if (action is not null && (DateTimeOffset.Now - _lastActionAt).TotalMilliseconds >= opt.Rules.ActionCooldownMs)
+                if (action is not null
+                    && (DateTimeOffset.Now - _lastActionAt).TotalMilliseconds >= opt.Rules.ActionCooldownMs
+                    && !IsDuplicateIntent(action, opt.Rules.ActionDedupWindowSec))
                 {
                     AppendJsonLine(actionPath, action);
                     _lastActionAt = DateTimeOffset.Now;
+                    RememberIntent(action);
                     Console.WriteLine($"[action] {action.ToJsonString()}");
                 }
+
+                CleanupIntentCache(opt.Rules.ActionDedupWindowSec);
 
                 _lastFramePath = latest;
             }
@@ -225,6 +232,30 @@ internal static class Program
     private static void AppendJsonLine(string path, JsonObject node)
         => File.AppendAllText(path, node.ToJsonString() + Environment.NewLine);
 
+    private static bool IsDuplicateIntent(JsonObject action, int dedupWindowSec)
+    {
+        var act = action["action"]?.GetValue<string>() ?? "unknown";
+        var reason = action["reason"]?.GetValue<string>() ?? "na";
+        var key = $"{act}|{reason}";
+        if (!RecentIntents.TryGetValue(key, out var last)) return false;
+        return (DateTimeOffset.Now - last).TotalSeconds < dedupWindowSec;
+    }
+
+    private static void RememberIntent(JsonObject action)
+    {
+        var act = action["action"]?.GetValue<string>() ?? "unknown";
+        var reason = action["reason"]?.GetValue<string>() ?? "na";
+        var key = $"{act}|{reason}";
+        RecentIntents[key] = DateTimeOffset.Now;
+    }
+
+    private static void CleanupIntentCache(int dedupWindowSec)
+    {
+        var now = DateTimeOffset.Now;
+        var dead = RecentIntents.Where(kv => (now - kv.Value).TotalSeconds > dedupWindowSec * 2).Select(kv => kv.Key).ToList();
+        foreach (var key in dead) RecentIntents.Remove(key);
+    }
+
     private static AppOptions LoadOptions()
     {
         var p = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
@@ -248,6 +279,7 @@ internal static class Program
             opt.Rules.ActionCooldownMs = rules["ActionCooldownMs"]?.GetValue<int>() ?? opt.Rules.ActionCooldownMs;
             opt.Rules.StateConfirmFrames = rules["StateConfirmFrames"]?.GetValue<int>() ?? opt.Rules.StateConfirmFrames;
             opt.Rules.MinStateDwellMs = rules["MinStateDwellMs"]?.GetValue<int>() ?? opt.Rules.MinStateDwellMs;
+            opt.Rules.ActionDedupWindowSec = rules["ActionDedupWindowSec"]?.GetValue<int>() ?? opt.Rules.ActionDedupWindowSec;
         }
         if (roi is not null)
         {

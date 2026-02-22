@@ -25,5 +25,9 @@
 - 无目标且画面有变化：下发 `tab_target`
 - 长时间无变化：下发 `unstuck_move`
 
+## 动作意图抑制（Orchestrator）
+- 增加 `ActionDedupWindowSec`，同类动作意图在窗口期内只写一次队列
+- 与 InputDriver 的去重/限频形成双重保险
+
 ## 说明
 这是“能跑通”的版本。后续再逐步升级识别精度（OCR/模板匹配/多ROI）。
