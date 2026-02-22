@@ -17,6 +17,8 @@ internal sealed class DriverOptions
     public bool UseSystemForegroundTitle { get; set; } = true;
     public string FocusHintFile { get; set; } = "../Jinjiu.Orchestrator/outbox/focus_window.txt";
     public List<string> AllowedWindowKeywords { get; set; } = new();
+    public Dictionary<string, string> ActionKeyMap { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public string AuditLogFile { get; set; } = "../Jinjiu.Orchestrator/outbox/input_audit.jsonl";
 }
 internal sealed class AppOptions { public InputOptions Input { get; set; } = new(); public DriverOptions Driver { get; set; } = new(); }
 
@@ -29,6 +31,7 @@ internal static class Program
     private static async Task Main()
     {
         var opt = Load();
+        Directory.CreateDirectory(Path.GetDirectoryName(opt.Driver.AuditLogFile) ?? ".");
         Console.WriteLine("[Jinjiu.InputDriver] started (simulation mode)");
 
         while (true)
@@ -123,11 +126,17 @@ internal static class Program
                 return false;
             }
 
-            if (!TryPerformRealInput(act))
+            if (!TryPerformRealInput(act, opt.ActionKeyMap, out var keyUsed))
             {
                 Console.WriteLine($"[skip] real-input unsupported action={act}");
                 return false;
             }
+
+            WriteAudit(opt.AuditLogFile, act, reason, false, keyUsed);
+        }
+        else
+        {
+            WriteAudit(opt.AuditLogFile, act, reason, true, "SIM");
         }
 
         _lastExecAt = now;
@@ -163,17 +172,23 @@ internal static class Program
         foreach (var k in toRemove) RecentActions.Remove(k);
     }
 
-    private static bool TryPerformRealInput(string action)
+    private static bool TryPerformRealInput(string action, Dictionary<string, string> keyMap, out string keyUsed)
     {
-        // MVP v0.2 skeleton: strict, minimal action set
-        return action switch
-        {
-            "cast_skill_1" => TapVirtualKey(0x31), // '1'
-            "tab_target" => TapVirtualKey(0x09),  // TAB
-            "use_potion" => TapVirtualKey(0x35),  // '5' (example)
-            "unstuck_move" => TapVirtualKey(0x57), // 'W'
-            _ => false
-        };
+        keyUsed = string.Empty;
+        if (!keyMap.TryGetValue(action, out var keyName) || string.IsNullOrWhiteSpace(keyName)) return false;
+        var vk = ParseVirtualKey(keyName);
+        if (vk is null) return false;
+        keyUsed = keyName.ToUpperInvariant();
+        return TapVirtualKey(vk.Value);
+    }
+
+    private static byte? ParseVirtualKey(string keyName)
+    {
+        var k = keyName.Trim().ToUpperInvariant();
+        if (k == "TAB") return 0x09;
+        if (k.Length == 1 && k[0] >= '0' && k[0] <= '9') return (byte)k[0];
+        if (k.Length == 1 && k[0] >= 'A' && k[0] <= 'Z') return (byte)k[0];
+        return null;
     }
 
     private static bool TapVirtualKey(byte vk)
@@ -189,6 +204,19 @@ internal static class Program
         {
             return false;
         }
+    }
+
+    private static void WriteAudit(string path, string action, string reason, bool simulation, string key)
+    {
+        var line = new JsonObject
+        {
+            ["time"] = DateTimeOffset.Now.ToString("O"),
+            ["action"] = action,
+            ["reason"] = reason,
+            ["simulation"] = simulation,
+            ["key"] = key
+        }.ToJsonString();
+        File.AppendAllText(path, line + Environment.NewLine);
     }
 
     [DllImport("user32.dll")]
@@ -223,6 +251,13 @@ internal static class Program
 
         o.Driver.AllowedActions = n?["Driver"]?["AllowedActions"]?.AsArray().Select(x => x?.GetValue<string>() ?? "").Where(x => !string.IsNullOrWhiteSpace(x)).ToList() ?? o.Driver.AllowedActions;
         o.Driver.AllowedWindowKeywords = n?["Driver"]?["AllowedWindowKeywords"]?.AsArray().Select(x => x?.GetValue<string>() ?? "").Where(x => !string.IsNullOrWhiteSpace(x)).ToList() ?? o.Driver.AllowedWindowKeywords;
+        o.Driver.AuditLogFile = n?["Driver"]?["AuditLogFile"]?.GetValue<string>() ?? o.Driver.AuditLogFile;
+
+        var mapNode = n?["Driver"]?["ActionKeyMap"]?.AsObject();
+        if (mapNode is not null)
+        {
+            o.Driver.ActionKeyMap = mapNode.ToDictionary(kv => kv.Key, kv => kv.Value?.GetValue<string>() ?? string.Empty, StringComparer.OrdinalIgnoreCase);
+        }
 
         return o;
     }

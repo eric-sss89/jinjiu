@@ -14,6 +14,7 @@
 ## 3) 动作白名单
 - 仅允许 `AllowedActions` 列表内动作
 - 未登记动作一律跳过
+- 真实输入时，动作还需在 `ActionKeyMap` 有按键映射
 
 ## 4) 焦点防护
 - `FocusGuardEnabled=true` 时启用焦点校验

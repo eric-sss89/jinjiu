@@ -64,6 +64,7 @@ dotnet run
 ```
 
 会持续读取 `action_queue.jsonl` 并打印执行日志。
+并在 `outbox/input_audit.jsonl` 写入输入审计记录。
 
 > 注意：InputDriver 需要 `src/Jinjiu.Orchestrator/outbox/driver.enabled` 存在才会执行动作。
 > 若启用真实输入（`RealInputEnabled=true`），还需额外创建 `src/Jinjiu.Orchestrator/outbox/driver.unsafe.enabled`。
