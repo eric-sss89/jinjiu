@@ -1,7 +1,7 @@
 using System.Text.Json.Nodes;
 
 internal sealed class InputOptions { public string StateFile { get; set; } = "../Jinjiu.Orchestrator/outbox/game_state.json"; public int PollMs { get; set; } = 300; }
-internal sealed class OutputOptions { public string ActionFile { get; set; } = "../Jinjiu.Orchestrator/outbox/agent_action.json"; }
+internal sealed class OutputOptions { public string ActionFile { get; set; } = "../Jinjiu.Orchestrator/outbox/agent_action.json"; public string HistoryFile { get; set; } = "../Jinjiu.Orchestrator/outbox/agent_decision_history.jsonl"; }
 internal sealed class PolicyOptions { public List<string> AllowedActions { get; set; } = new(); public int CooldownMs { get; set; } = 1000; }
 internal sealed class AppOptions { public InputOptions Input { get; set; } = new(); public OutputOptions Output { get; set; } = new(); public PolicyOptions Policy { get; set; } = new(); }
 
@@ -13,6 +13,8 @@ internal static class Program
     private static async Task Main()
     {
         var opt = Load();
+        Directory.CreateDirectory(Path.GetDirectoryName(opt.Output.ActionFile) ?? ".");
+        Directory.CreateDirectory(Path.GetDirectoryName(opt.Output.HistoryFile) ?? ".");
         Console.WriteLine("[Jinjiu.DecisionAgent] started");
 
         while (true)
@@ -64,6 +66,7 @@ internal static class Program
                 };
 
                 File.WriteAllText(opt.Output.ActionFile, output.ToJsonString(new System.Text.Json.JsonSerializerOptions { WriteIndented = true }));
+                File.AppendAllText(opt.Output.HistoryFile, output.ToJsonString() + Environment.NewLine);
                 _lastDecisionAt = DateTimeOffset.Now;
                 Console.WriteLine($"[decision] {output.ToJsonString()}");
             }
@@ -94,6 +97,7 @@ internal static class Program
         o.Input.StateFile = n?["Input"]?["StateFile"]?.GetValue<string>() ?? o.Input.StateFile;
         o.Input.PollMs = n?["Input"]?["PollMs"]?.GetValue<int>() ?? o.Input.PollMs;
         o.Output.ActionFile = n?["Output"]?["ActionFile"]?.GetValue<string>() ?? o.Output.ActionFile;
+        o.Output.HistoryFile = n?["Output"]?["HistoryFile"]?.GetValue<string>() ?? o.Output.HistoryFile;
         o.Policy.CooldownMs = n?["Policy"]?["CooldownMs"]?.GetValue<int>() ?? o.Policy.CooldownMs;
         o.Policy.AllowedActions = n?["Policy"]?["AllowedActions"]?.AsArray().Select(x => x?.GetValue<string>() ?? "").Where(x => !string.IsNullOrWhiteSpace(x)).ToList() ?? o.Policy.AllowedActions;
         return o;

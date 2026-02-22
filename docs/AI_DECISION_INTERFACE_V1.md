@@ -11,7 +11,8 @@
 - 关键字段：`seq/mode/hpPct/targetHpPct/frameDiff/stalledSeconds`
 
 ## 输出（Agent 给 Orchestrator）
-- 文件：`outbox/agent_action.json`
+- 最新动作文件：`outbox/agent_action.json`
+- 决策历史文件：`outbox/agent_decision_history.jsonl`
 - 字段：
 ```json
 {
