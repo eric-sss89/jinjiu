@@ -18,6 +18,7 @@ MVP 目标：先跑通 **屏幕采集 -> 状态估计 -> 动作队列 -> 执行�
 - `docs/COMMAND_PROTOCOL.md`
 - `docs/ROI_TUNING.md`
 - `docs/MVP_ACCEPTANCE.md`
+- `docs/SAFETY_GUARDS.md`
 
 ## 运行要求
 - Windows 10/11
@@ -48,6 +49,8 @@ dotnet run
 ```
 
 会持续读取 `action_queue.jsonl` 并打印执行日志。
+
+> 注意：InputDriver 需要 `src/Jinjiu.Orchestrator/outbox/driver.enabled` 存在才会执行动作。
 
 ## 一键启动（Windows）
 ```powershell
