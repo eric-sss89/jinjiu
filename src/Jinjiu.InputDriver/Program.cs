@@ -6,6 +6,8 @@ internal sealed class InputOptions { public string ActionQueueFile { get; set; }
 internal sealed class DriverOptions
 {
     public bool SimulationOnly { get; set; } = true;
+    public bool RealInputEnabled { get; set; } = false;
+    public string UnsafeEnableFlagFile { get; set; } = "../Jinjiu.Orchestrator/outbox/driver.unsafe.enabled";
     public int MinIntervalMs { get; set; } = 800;
     public int DedupWindowSec { get; set; } = 5;
     public string EnabledFlagFile { get; set; } = "../Jinjiu.Orchestrator/outbox/driver.enabled";
@@ -110,8 +112,23 @@ internal static class Program
             return false;
         }
 
-        Console.WriteLine($"[execute] action={act} reason={reason} simulation={opt.SimulationOnly}");
-        // TODO: 后续替换为真实键鼠注入
+        var simulation = opt.SimulationOnly || !opt.RealInputEnabled;
+        Console.WriteLine($"[execute] action={act} reason={reason} simulation={simulation}");
+
+        if (!simulation)
+        {
+            if (!File.Exists(opt.UnsafeEnableFlagFile))
+            {
+                Console.WriteLine($"[skip] real-input blocked, missing unsafe flag: {opt.UnsafeEnableFlagFile}");
+                return false;
+            }
+
+            if (!TryPerformRealInput(act))
+            {
+                Console.WriteLine($"[skip] real-input unsupported action={act}");
+                return false;
+            }
+        }
 
         _lastExecAt = now;
         RecentActions[key] = now;
@@ -146,11 +163,42 @@ internal static class Program
         foreach (var k in toRemove) RecentActions.Remove(k);
     }
 
+    private static bool TryPerformRealInput(string action)
+    {
+        // MVP v0.2 skeleton: strict, minimal action set
+        return action switch
+        {
+            "cast_skill_1" => TapVirtualKey(0x31), // '1'
+            "tab_target" => TapVirtualKey(0x09),  // TAB
+            "use_potion" => TapVirtualKey(0x35),  // '5' (example)
+            "unstuck_move" => TapVirtualKey(0x57), // 'W'
+            _ => false
+        };
+    }
+
+    private static bool TapVirtualKey(byte vk)
+    {
+        try
+        {
+            keybd_event(vk, 0, 0, 0);
+            Thread.Sleep(30);
+            keybd_event(vk, 0, 0x0002, 0); // KEYEVENTF_KEYUP
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
 
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
     private static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int count);
+
+    [DllImport("user32.dll")]
+    private static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, nuint dwExtraInfo);
 
     private static AppOptions Load()
     {
@@ -163,6 +211,8 @@ internal static class Program
         o.Input.PollMs = n?["Input"]?["PollMs"]?.GetValue<int>() ?? o.Input.PollMs;
 
         o.Driver.SimulationOnly = n?["Driver"]?["SimulationOnly"]?.GetValue<bool>() ?? o.Driver.SimulationOnly;
+        o.Driver.RealInputEnabled = n?["Driver"]?["RealInputEnabled"]?.GetValue<bool>() ?? o.Driver.RealInputEnabled;
+        o.Driver.UnsafeEnableFlagFile = n?["Driver"]?["UnsafeEnableFlagFile"]?.GetValue<string>() ?? o.Driver.UnsafeEnableFlagFile;
         o.Driver.MinIntervalMs = n?["Driver"]?["MinIntervalMs"]?.GetValue<int>() ?? o.Driver.MinIntervalMs;
         o.Driver.DedupWindowSec = n?["Driver"]?["DedupWindowSec"]?.GetValue<int>() ?? o.Driver.DedupWindowSec;
         o.Driver.EnabledFlagFile = n?["Driver"]?["EnabledFlagFile"]?.GetValue<string>() ?? o.Driver.EnabledFlagFile;

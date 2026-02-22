@@ -24,6 +24,7 @@ MVP 目标：先跑通 **屏幕采集 -> 状态估计 -> 动作队列 -> 执行�
 - `docs/STATE_SCHEMA.md`
 - `docs/AI_DECISION_INTERFACE_V1.md`
 - `docs/RELEASE_v0.1.0.md`
+- `docs/V0_2_NEXT.md`
 - `CHANGELOG.md`
 
 ## 运行要求
@@ -65,6 +66,7 @@ dotnet run
 会持续读取 `action_queue.jsonl` 并打印执行日志。
 
 > 注意：InputDriver 需要 `src/Jinjiu.Orchestrator/outbox/driver.enabled` 存在才会执行动作。
+> 若启用真实输入（`RealInputEnabled=true`），还需额外创建 `src/Jinjiu.Orchestrator/outbox/driver.unsafe.enabled`。
 
 ## 一键启动（Windows）
 ```powershell

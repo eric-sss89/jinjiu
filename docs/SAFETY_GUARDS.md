@@ -5,6 +5,7 @@
 ## 1) 启用开关
 - `driver.enabled` 文件存在才执行动作
 - 删除该文件即可暂停执行
+- 若启用真实输入（`RealInputEnabled=true`），还需要 `driver.unsafe.enabled` 才允许注入
 
 ## 2) 紧急停止
 - 检测到 `driver.stop` 文件后立即阻断动作
