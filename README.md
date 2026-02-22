@@ -7,6 +7,7 @@ MVP 目标：先跑通 **屏幕采集 -> 状态估计 -> 动作队列 -> 执行�
 - `src/Jinjiu.Capture/`：屏幕采集
 - `src/Jinjiu.Orchestrator/`：状态估计 + 策略 + 动作队列
 - `src/Jinjiu.InputDriver/`：动作消费执行（当前为模拟执行）
+- `src/Jinjiu.RoiCalibrator/`：ROI 可视化校准工具
 
 ## 文档
 - `docs/PROJECT_PLAN.md`
@@ -15,6 +16,7 @@ MVP 目标：先跑通 **屏幕采集 -> 状态估计 -> 动作队列 -> 执行�
 - `docs/PHASE_1_CAPTURE.md`
 - `docs/PHASE_2_RULE_ENGINE.md`
 - `docs/COMMAND_PROTOCOL.md`
+- `docs/ROI_TUNING.md`
 
 ## 运行要求
 - Windows 10/11
