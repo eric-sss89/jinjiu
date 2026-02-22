@@ -18,7 +18,8 @@ internal sealed class RuleOptions
 internal sealed class RoiRect { public double X { get; set; } public double Y { get; set; } public double W { get; set; } public double H { get; set; } }
 internal sealed class RoiOptions { public RoiRect PlayerHp { get; set; } = new(); public RoiRect TargetHp { get; set; } = new(); }
 internal sealed class OutputOptions { public string OutboxDir { get; set; } = "outbox"; public string StateFile { get; set; } = "game_state.json"; public string ActionQueueFile { get; set; } = "action_queue.jsonl"; }
-internal sealed class AppOptions { public InputOptions Input { get; set; } = new(); public RuleOptions Rules { get; set; } = new(); public RoiOptions Roi { get; set; } = new(); public OutputOptions Output { get; set; } = new(); }
+internal sealed class DecisionOptions { public string Mode { get; set; } = "rule"; public string AgentActionFile { get; set; } = "outbox/agent_action.json"; public int AgentActionMaxAgeSec { get; set; } = 2; }
+internal sealed class AppOptions { public InputOptions Input { get; set; } = new(); public RuleOptions Rules { get; set; } = new(); public RoiOptions Roi { get; set; } = new(); public OutputOptions Output { get; set; } = new(); public DecisionOptions Decision { get; set; } = new(); }
 
 internal static class Program
 {
@@ -77,10 +78,11 @@ internal static class Program
                 var rawMode = InferRawMode(hpPct, targetHpPct, diff, stalledSeconds, opt);
                 var modeChanged = UpdateStableMode(rawMode, opt);
 
-                var action = DecideAction(_stableMode);
+                var action = ResolveAction(_stableMode, opt);
                 if (action is not null
                     && (DateTimeOffset.Now - _lastActionAt).TotalMilliseconds >= opt.Rules.ActionCooldownMs
-                    && !IsDuplicateIntent(action, opt.Rules.ActionDedupWindowSec))
+                    && !IsDuplicateIntent(action, opt.Rules.ActionDedupWindowSec)
+                    && (action["action"]?.GetValue<string>()?.Length ?? 0) > 0)
                 {
                     AppendJsonLine(actionPath, action);
                     _lastActionAt = DateTimeOffset.Now;
@@ -169,7 +171,17 @@ internal static class Program
         };
     }
 
-    private static JsonObject? DecideAction(string mode)
+    private static JsonObject? ResolveAction(string mode, AppOptions opt)
+    {
+        if (string.Equals(opt.Decision.Mode, "agent", StringComparison.OrdinalIgnoreCase))
+        {
+            var fromAgent = TryGetAgentAction(opt.Decision);
+            if (fromAgent is not null) return fromAgent;
+        }
+        return DecideActionByRule(mode);
+    }
+
+    private static JsonObject? DecideActionByRule(string mode)
     {
         return mode switch
         {
@@ -179,6 +191,19 @@ internal static class Program
             "ERROR" => Action("unstuck_move", "screen_stalled"),
             _ => null
         };
+    }
+
+    private static JsonObject? TryGetAgentAction(DecisionOptions opt)
+    {
+        if (!File.Exists(opt.AgentActionFile)) return null;
+        var age = DateTimeOffset.Now - File.GetLastWriteTimeUtc(opt.AgentActionFile);
+        if (age.TotalSeconds > opt.AgentActionMaxAgeSec) return null;
+        var n = JsonNode.Parse(File.ReadAllText(opt.AgentActionFile))?.AsObject();
+        if (n is null) return null;
+        var action = n["action"]?.GetValue<string>();
+        if (string.IsNullOrWhiteSpace(action)) return null;
+        var reason = n["reason"]?.GetValue<string>() ?? "agent_decision";
+        return Action(action, reason);
     }
 
     private static JsonObject Action(string action, string reason) => new()
@@ -271,7 +296,7 @@ internal static class Program
         var root = JsonNode.Parse(File.ReadAllText(p));
         var opt = new AppOptions();
 
-        var input = root?["Input"]; var rules = root?["Rules"]; var roi = root?["Roi"]; var output = root?["Output"];
+        var input = root?["Input"]; var rules = root?["Rules"]; var roi = root?["Roi"]; var output = root?["Output"]; var decision = root?["Decision"];
         if (input is not null)
         {
             opt.Input.CaptureDir = input["CaptureDir"]?.GetValue<string>() ?? opt.Input.CaptureDir;
@@ -299,6 +324,12 @@ internal static class Program
             opt.Output.OutboxDir = output["OutboxDir"]?.GetValue<string>() ?? opt.Output.OutboxDir;
             opt.Output.StateFile = output["StateFile"]?.GetValue<string>() ?? opt.Output.StateFile;
             opt.Output.ActionQueueFile = output["ActionQueueFile"]?.GetValue<string>() ?? opt.Output.ActionQueueFile;
+        }
+        if (decision is not null)
+        {
+            opt.Decision.Mode = decision["Mode"]?.GetValue<string>() ?? opt.Decision.Mode;
+            opt.Decision.AgentActionFile = decision["AgentActionFile"]?.GetValue<string>() ?? opt.Decision.AgentActionFile;
+            opt.Decision.AgentActionMaxAgeSec = decision["AgentActionMaxAgeSec"]?.GetValue<int>() ?? opt.Decision.AgentActionMaxAgeSec;
         }
 
         return opt;

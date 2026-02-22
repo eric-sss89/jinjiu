@@ -8,6 +8,7 @@ MVP 目标：先跑通 **屏幕采集 -> 状态估计 -> 动作队列 -> 执行�
 - `src/Jinjiu.Orchestrator/`：状态估计 + 策略 + 动作队列
 - `src/Jinjiu.InputDriver/`：动作消费执行（当前为模拟执行）
 - `src/Jinjiu.RoiCalibrator/`：ROI 可视化校准工具
+- `src/Jinjiu.DecisionAgent/`：AI 决策代理（读取状态，输出动作）
 
 ## 文档
 - `docs/PROJECT_PLAN.md`
@@ -21,6 +22,7 @@ MVP 目标：先跑通 **屏幕采集 -> 状态估计 -> 动作队列 -> 执行�
 - `docs/SAFETY_GUARDS.md`
 - `docs/DEMO_RUNBOOK_5MIN.md`
 - `docs/STATE_SCHEMA.md`
+- `docs/AI_DECISION_INTERFACE_V1.md`
 
 ## 运行要求
 - Windows 10/11
@@ -44,7 +46,15 @@ dotnet run
 - `outbox/game_state.json`
 - `outbox/action_queue.jsonl`
 
-### 3) 动作执行器（模拟）
+### 3) AI 决策代理（可选）
+```powershell
+cd src/Jinjiu.DecisionAgent
+dotnet run
+```
+如果启用 Agent 决策，请在 `src/Jinjiu.Orchestrator/appsettings.json` 设置：
+`Decision.Mode = "agent"`
+
+### 4) 动作执行器（模拟）
 ```powershell
 cd src/Jinjiu.InputDriver
 dotnet run

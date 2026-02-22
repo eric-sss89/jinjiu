@@ -12,6 +12,13 @@
 ./scripts/start-mvp.ps1
 ```
 
+若要启用 AI 决策代理模式：
+1) 将 `src/Jinjiu.Orchestrator/appsettings.json` 中 `Decision.Mode` 改为 `agent`
+2) 运行：
+```powershell
+./scripts/start-mvp-agent.ps1
+```
+
 ## 2) 校准 ROI（建议先做）
 ```powershell
 cd src/Jinjiu.RoiCalibrator
