@@ -30,6 +30,7 @@ MVP 目标：先跑通 **屏幕采集 -> 状态估计 -> 动作队列 -> 执行�
 - `docs/AUDIT_STATS_SCRIPT.md`
 - `docs/REPLAY_TOOL_GUIDE.md`
 - `docs/V0_2_REAL_INPUT_REGRESSION.md`
+- `docs/WINDOWS_MVP_TEST_STEP_BY_STEP.md`
 - `CHANGELOG.md`
 
 ## 运行要求
