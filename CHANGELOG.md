@@ -7,6 +7,8 @@
 - Dual safety gate for real input: `driver.enabled` + `driver.unsafe.enabled`
 - Configurable action key mapping via `ActionKeyMap`
 - Input-level audit log `input_audit.jsonl`
+- Audit stats script guide (`docs/AUDIT_STATS_SCRIPT.md`)
+- Replay tool guide (`docs/REPLAY_TOOL_GUIDE.md`)
 - v0.2 next-step planning doc
 
 ## v0.1.0 - MVP runnable loop

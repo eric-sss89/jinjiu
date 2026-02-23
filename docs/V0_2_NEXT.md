@@ -29,5 +29,7 @@
 
 ## 新增文档（本轮）
 - `docs/INPUT_AUDIT.md`：输入审计日志格式、统计口径、排障用法
+- `docs/AUDIT_STATS_SCRIPT.md`：审计统计脚本说明
+- `docs/REPLAY_TOOL_GUIDE.md`：回放工具使用手册
 - `docs/V0_2_REAL_INPUT_REGRESSION.md`：真实输入回归清单
 - `docs/RELEASE_v0.2.0-next.md`：v0.2 阶段发布说明
