@@ -29,5 +29,8 @@
 - Focus guard
 
 ### Docs
+- Added `docs/INPUT_AUDIT.md` (input audit format and usage)
+- Added `docs/V0_2_REAL_INPUT_REGRESSION.md` (real-input regression checklist)
+- Added `docs/RELEASE_v0.2.0-next.md` (phase release notes)
 - MVP flow / acceptance / 5-min runbook
 - State schema and AI decision interface v1

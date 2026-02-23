@@ -24,7 +24,10 @@ MVP 目标：先跑通 **屏幕采集 -> 状态估计 -> 动作队列 -> 执行�
 - `docs/STATE_SCHEMA.md`
 - `docs/AI_DECISION_INTERFACE_V1.md`
 - `docs/RELEASE_v0.1.0.md`
+- `docs/RELEASE_v0.2.0-next.md`
 - `docs/V0_2_NEXT.md`
+- `docs/INPUT_AUDIT.md`
+- `docs/V0_2_REAL_INPUT_REGRESSION.md`
 - `CHANGELOG.md`
 
 ## 运行要求
